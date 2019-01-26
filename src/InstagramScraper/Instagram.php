@@ -41,7 +41,7 @@ class Instagram
     private $sessionPassword;
     private $userSession;
     private $rhxGis = null;
-    private $userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36';
+    private $userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36';
 
     /**
      * @param string $username
@@ -687,8 +687,16 @@ class Instagram
      */
     private static function parseCookies($headers)
     {
-        $rawCookies = isset($headers['Set-Cookie']) ? $headers['Set-Cookie'] : isset($headers['set-cookie']) ? $headers['set-cookie'] : [];
+        // $rawCookies = isset($headers['Set-Cookie']) ? $headers['Set-Cookie'] : isset($headers['set-cookie']) ? $headers['set-cookie'] : [];
         
+        if (isset($headers['Set-Cookie'])) {
+            $rawCookies = $headers['Set-Cookie'];
+        } elseif (isset($headers['set-cookie'])) {
+            $rawCookies = $headers['set-cookie'];
+        } else {
+            $rawCookies = [];
+        }
+
         if (!is_array($rawCookies)) {
             $rawCookies = [$rawCookies];
         }
@@ -715,7 +723,8 @@ class Instagram
         $cookies = $secure_cookies + $not_secure_cookies;
         
         if (isset($cookies['csrftoken'])) {
-            $this->userSession['csrftoken'] = $cookies['csrftoken'];
+            $instance = new self();
+            $instance->userSession['csrftoken'] = $cookies['csrftoken'];
         }
         
         return $cookies;
@@ -800,6 +809,10 @@ class Instagram
      */
     public function getUsernameById($id)
     {
+        // echo "<pre>";
+        // print_r($this->generateHeaders($this->userSession));
+        // echo "</pre>";
+
         $response = Request::get(Endpoints::getAccountJsonPrivateInfoLinkByAccountId($id), $this->generateHeaders($this->userSession));
 
         if (static::HTTP_NOT_FOUND === $response->code) {
@@ -809,6 +822,9 @@ class Instagram
         if (static::HTTP_OK !== $response->code) {
             throw new InstagramException('Response code is ' . $response->code . '. Body: ' . static::getErrorBody($response->body) . ' Something went wrong. Please report issue.', $response->code);
         }
+
+        // echo $response->raw_body;
+        exit();
 
         if (!($responseArray = json_decode($response->raw_body, true))) {
             throw new InstagramException('Response does not JSON');
@@ -1256,6 +1272,17 @@ class Instagram
      */
     public function login($force = false, $support_two_step_verification = false)
     {
+
+        $headers = [
+            'accept' => '*/*',
+            'accept-encoding' =>  'gzip, deflate, br',
+            'accept-language' =>  'en-US,en;q=0.9,und;q=0.8',
+            'cookie' =>  'ig_cb=1',
+            'referer' => 'https://www.instagram.com/accounts/login/?source=auth_switcher',
+            'user-agent' =>  $this->getUserAgent(), //'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36',
+            'x-requested-with' =>  'XMLHttpRequest',
+        ];
+
         if ($this->sessionUsername == null || $this->sessionPassword == null) {
             throw new InstagramAuthException("User credentials not provided");
         }
@@ -1263,17 +1290,39 @@ class Instagram
         $cachedString = static::$instanceCache->getItem($this->sessionUsername);
         $session = $cachedString->get();
         if ($force || !$this->isLoggedIn($session)) {
-            $response = Request::get(Endpoints::BASE_URL);
+            $response = Request::get('https://www.instagram.com/web/__mid/', $headers);
+            
             if ($response->code !== static::HTTP_OK) {
                 throw new InstagramException('Response code is ' . $response->code . '. Body: ' . static::getErrorBody($response->body) . ' Something went wrong. Please report issue.', $response->code);
             }
-            preg_match('/"csrf_token":"(.*?)"/', $response->body, $match);
-            if (isset($match[1])) {
-                $csrfToken = $match[1];
-            }
+            
+            // preg_match('/"csrf_token":"(.*?)"/', $response->body, $match);
+            // if (isset($match[1])) {
+            //     $csrfToken = $match[1];
+            // }
+
+            // echo "response header...";
+            // echo "<pre>";
+            // print_r($response->headers);
+            // echo "</pre>";
+
+            // echo "NON parsed...";
+            // echo "<pre>";
+            // print_r($response->headers);
+            // echo "</pre>";
+
             $cookies = static::parseCookies($response->headers);
 
+            // echo "parsed...";
+            // echo "<pre>";
+            // print_r($cookies);
+            // echo "</pre>";
+
+            // exit('end.');
+
             $mid = $cookies['mid'];
+            $csrfToken = $cookies['csrftoken'];
+            
             $headers = [
                 'cookie' => "ig_cb=1; csrftoken=$csrfToken; mid=$mid;",
                 'referer' => Endpoints::BASE_URL . '/',
@@ -1281,6 +1330,7 @@ class Instagram
                 'X-CSRFToken' => $csrfToken,
                 'user-agent' => $this->getUserAgent(),
             ];
+            
             $response = Request::post(Endpoints::LOGIN_URL, $headers,
                 ['username' => $this->sessionUsername, 'password' => $this->sessionPassword]);
 

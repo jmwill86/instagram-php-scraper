@@ -4,6 +4,7 @@ namespace InstagramScraper;
 
 class Endpoints
 {
+    const LOGIN_PAGE = 'https://www.instagram.com/accounts/login/?source=auth_switcher';
     const BASE_URL = 'https://www.instagram.com';
     const LOGIN_URL = 'https://www.instagram.com/accounts/login/ajax/';
     const ACCOUNT_PAGE = 'https://www.instagram.com/{username}';
