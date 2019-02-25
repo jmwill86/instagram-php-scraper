@@ -425,6 +425,13 @@ class Media extends AbstractModel
      */
     protected function initPropertiesCustom($value, $prop, $arr)
     {
+        // echo "<pre>";
+        // print_r($arr);
+        // print_r($prop);
+        // echo "</pre>";
+        // exit();
+
+
         switch ($prop) {
             case 'id':
                 $this->id = $value;

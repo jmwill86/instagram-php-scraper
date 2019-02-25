@@ -239,8 +239,8 @@ class Instagram
                 'cookie' => $cookies,
                 'referer' => Endpoints::BASE_URL . '/',
                 'x-csrftoken' => $csrf,
+                // 'x-instagram-ajax': e804ac7f6fd6
             ];
-
         }
 
         if ($this->getUserAgent()) {
@@ -1290,35 +1290,14 @@ class Instagram
         $cachedString = static::$instanceCache->getItem($this->sessionUsername);
         $session = $cachedString->get();
         if ($force || !$this->isLoggedIn($session)) {
+            echo "Not logged in." . PHP_EOL;
             $response = Request::get('https://www.instagram.com/web/__mid/', $headers);
             
             if ($response->code !== static::HTTP_OK) {
                 throw new InstagramException('Response code is ' . $response->code . '. Body: ' . static::getErrorBody($response->body) . ' Something went wrong. Please report issue.', $response->code);
             }
-            
-            // preg_match('/"csrf_token":"(.*?)"/', $response->body, $match);
-            // if (isset($match[1])) {
-            //     $csrfToken = $match[1];
-            // }
-
-            // echo "response header...";
-            // echo "<pre>";
-            // print_r($response->headers);
-            // echo "</pre>";
-
-            // echo "NON parsed...";
-            // echo "<pre>";
-            // print_r($response->headers);
-            // echo "</pre>";
 
             $cookies = static::parseCookies($response->headers);
-
-            // echo "parsed...";
-            // echo "<pre>";
-            // print_r($cookies);
-            // echo "</pre>";
-
-            // exit('end.');
 
             $mid = $cookies['mid'];
             $csrfToken = $cookies['csrftoken'];
@@ -1351,8 +1330,8 @@ class Instagram
             }
 
             $cookies = static::parseCookies($response->headers);
-
             $cookies['mid'] = $mid;
+
             $cachedString->set($cookies);
             static::$instanceCache->save($cachedString);
             $this->userSession = $cookies;
@@ -1407,6 +1386,7 @@ class Instagram
         foreach ($cookies as $name => $value) {
             $cookie_string .= $name . "=" . $value . "; ";
         }
+
         $headers = [
             'cookie' => $cookie_string,
             'referer' => Endpoints::LOGIN_URL,
@@ -1510,6 +1490,23 @@ class Instagram
 
         if ($jsonResponse['status'] !== 'ok') {
             throw new InstagramException('Response status is ' . $jsonResponse['status'] . '. Body: ' . static::getErrorBody($response->body) . ' Something went wrong. Please report issue.', $response->code);
+        }
+    }
+
+
+    /**
+     * @param int|string|Media $mediaId
+     *
+     * @return void
+     * @throws InstagramException
+     */
+    public function follow($accountId)
+    {
+        $url = Endpoints::getFollowUrl($accountId);
+        $response = Request::post($url, $this->generateHeaders($this->userSession));
+
+        if ($response->code !== static::HTTP_OK) {
+            throw new InstagramException('Response code is ' . $response->code . '. Body: ' . static::getErrorBody($response->body) . ' Something went wrong. Please report issue.', $response->code);
         }
     }
 
